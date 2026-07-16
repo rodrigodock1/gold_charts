@@ -2,6 +2,7 @@
 from pyspark.sql.functions import col, lit, array, split, map_from_arrays
 import datetime
 from datetime import datetime
+import argparse
 
 iso3_to_country_full = {
     "EMU": "Euro Area",
@@ -66,12 +67,16 @@ keys = array([lit(k) for k in iso3_to_country_full.keys()])
 values = array([lit(v) for v in iso3_to_country_full.values()])
 country_map = map_from_arrays(keys, values)
 
-db_host = spark.conf.get("db_host")
-db_user = spark.conf.get("db_user")
-db_port = spark.conf.get("db_port")
-gold_db = spark.conf.get("gold_database")
+# Parse command-line arguments
+parser = argparse.ArgumentParser()
+parser.add_argument("--gold_database", required=True)
+args = parser.parse_args()
+
+db_port = args.db_port
+gold_db = args.gold_database
+db_host = dbutils.secrets.get(scope="gold-charts", key="db_host")
+db_user = dbutils.secrets.get(scope="gold-charts", key="db_user")
 db_password = dbutils.secrets.get(scope="gold-charts", key="supabase_password")
-jdbc_url = f"jdbc:postgresql://{db_host}:{db_port}/{gold_db}?user={db_user}&password={db_password}&prepareThreshold=0"
 
 connection_properties = {
     "user": db_user,
@@ -81,11 +86,13 @@ connection_properties = {
 
 def write_to_gold_table(df, table_name):
     df.write \
-        .format("jdbc") \
-        .option("url", jdbc_url) \
+        .format("postgresql") \
+        .option("host", db_host) \
+        .option("port", db_port) \
+        .option("database", gold_db) \
         .option("dbtable", table_name) \
-        .option("user", connection_properties["user"]) \
-        .option("password", connection_properties["password"]) \
+        .option("user", db_user) \
+        .option("password", db_password) \
         .mode("overwrite") \
         .save()
 

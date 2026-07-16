@@ -1,0 +1,80 @@
+bundle:
+  name: gold_charts
+
+workspace:
+  host: https://dbc-270e414b-2aca.cloud.databricks.com
+
+variables:
+  # Database connection variables
+  db_host:
+    default: aws-1-us-west-2.pooler.supabase.com
+    description: PostgreSQL host for gold export
+  
+  db_port:
+    default: "6543"
+    description: PostgreSQL port
+  
+  db_user:
+    default: postgres.igvsyqmbqwhpeeiyygwj
+    description: PostgreSQL user
+  
+  gold_database:
+    default: postgres
+    description: PostgreSQL database name
+
+resources:
+  pipelines:
+    silver_processing:
+      name: silver_processing
+      catalog: main
+      target: gold_charts
+      libraries:
+        - file:
+            path: ./silver_processing.py
+      configuration:
+        worldbank_api_url: https://api.worldbank.org/v2/country
+        oecd_api_url: https://sdmx.oecd.org/public/rest/data/
+      serverless: true
+      channel: CURRENT
+      photon: true
+      continuous: false
+      development: false
+
+  jobs:
+    gold_charts_pipeline:
+      name: gold_charts_pipeline
+      
+      tasks:
+        - task_key: silver_processing
+          pipeline_task:
+            pipeline_id: ${resources.pipelines.silver_processing.id}
+        
+        - task_key: gold_processing
+          depends_on:
+            - task_key: silver_processing
+          spark_python_task:
+            python_file: ./gold_processing.py
+            source: WORKSPACE
+          spark_conf:
+            db_host: ${var.db_host}
+            db_port: ${var.db_port}
+            db_user: ${var.db_user}
+            gold_database: ${var.gold_database}
+      
+      max_concurrent_runs: 1
+      queue:
+        enabled: true
+
+targets:
+  dev:
+    mode: development
+    default: true
+    workspace:
+      root_path: /Users/${workspace.current_user.userName}/.bundle/gold_charts/dev
+  
+  prod:
+    mode: production
+    workspace:
+      root_path: /Users/${workspace.current_user.userName}/.bundle/gold_charts/prod
+    run_as:
+      service_principal_name: ${var.service_principal_name}
