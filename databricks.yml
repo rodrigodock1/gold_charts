@@ -30,7 +30,13 @@ resources:
       target: gold_charts
       libraries:
         - file:
-            path: ./silver_processing.py
+            path: ./silver_pipeline/transformations/metrics_pipeline.py
+        - file:
+            path: ./silver_pipeline/transformations/api_interface/api_connections.py
+        - file:
+            path: ./silver_pipeline/transformations/__init__.py
+        - file:
+            path: ./silver_pipeline/transformations/api_interface/__init__.py
       configuration:
         worldbank_api_url: https://api.worldbank.org/v2/country
         oecd_api_url: https://sdmx.oecd.org/public/rest/data/
@@ -44,6 +50,19 @@ resources:
     gold_charts_pipeline:
       name: gold_charts_pipeline
       
+      job_clusters:
+        - job_cluster_key: serverless_cluster
+          new_cluster:
+            spark_version: "15.4.x-scala2.12"
+            node_type_id: "i3.xlarge"
+            num_workers: 0
+            data_security_mode: "USER_ISOLATION"
+            spark_conf:
+              "spark.databricks.cluster.profile": "singleNode"
+              "spark.master": "local[*]"
+            custom_tags:
+              "ResourceClass": "SingleNode"
+      
       tasks:
         - task_key: silver_processing
           pipeline_task:
@@ -52,14 +71,19 @@ resources:
         - task_key: gold_processing
           depends_on:
             - task_key: silver_processing
+          job_cluster_key: serverless_cluster
           spark_python_task:
             python_file: ./gold_processing.py
             source: WORKSPACE
-          spark_conf:
-            db_host: ${var.db_host}
-            db_port: ${var.db_port}
-            db_user: ${var.db_user}
-            gold_database: ${var.gold_database}
+            parameters:
+              - "--db_host"
+              - ${var.db_host}
+              - "--db_port"
+              - ${var.db_port}
+              - "--db_user"
+              - ${var.db_user}
+              - "--gold_database"
+              - ${var.gold_database}
       
       max_concurrent_runs: 1
       queue:

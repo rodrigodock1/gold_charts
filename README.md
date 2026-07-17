@@ -1,4 +1,4 @@
-Gold Charts
+# Gold Charts
 
 This project deploys the data pipeline to calculate the metrics for the gold-charts.org website. It implementes a Medallion architecture, data quality and testings to gather the data from the OECD and World Bank public APIs and transform it into useful gold based metrics for further analysis.
 

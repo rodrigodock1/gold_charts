@@ -10,6 +10,10 @@ from io import StringIO
 # Get the active Spark session
 spark = SparkSession.getActiveSession()
 
+# Initialize dbutils
+from pyspark.dbutils import DBUtils
+dbutils = DBUtils(spark)
+
 oecd_codes = {
     "average_wage":"AV_AN_WAGE", # Average Wage
     "minimum_wage":"MW_CURP",  # Mininmum Wage
@@ -120,6 +124,32 @@ iso3_to_country_name = {
     "GBR": "united_kingdom",
     "USA": "united_states"
 }
+
+def latest_gold_price(year, api_token=None, gold_price_api_url=None):
+    if api_token is None or gold_price_api_url is None:
+        gold_price_api_url = spark.conf.get("gold_api_url")
+        api_token =  dbutils.secrets.get(scope="gold-charts", key="goldapi_token")
+    try:
+        url = gold_price_api_url
+        headers = {
+            "x-access-token": api_token,
+            "Content-Type": "application/json"
+        }
+        response = requests.get(url, headers=headers).json()
+        oz_value = response["prev_close_price"]
+        kg_value = oz_value * 31.1035
+
+        result = spark.sql(f"""
+            INSERT INTO main.gold_charts.historic_gold_prices (`year`, `Price (USD per troy ounce)`, `Price (USD per kg)`)
+            VALUES ({year}, {oz_value}, {kg_value})
+        """)
+        print(f"Gold price for {year} is {oz_value} USD per troy ounce and {kg_value} USD per kg.")
+        print(result)
+        return oz_value, kg_value
+    except Exception as e:
+        print(f"Error fetching gold price: {e}")
+        return None,
+
 
 def build_exchange_map(year, world_bank_api_url=None):
     if world_bank_api_url is None:

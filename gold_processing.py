@@ -69,6 +69,9 @@ country_map = map_from_arrays(keys, values)
 
 # Parse command-line arguments
 parser = argparse.ArgumentParser()
+parser.add_argument("--db_host", required=True)
+parser.add_argument("--db_port", required=True)
+parser.add_argument("--db_user", required=True)
 parser.add_argument("--gold_database", required=True)
 args = parser.parse_args()
 
@@ -85,16 +88,19 @@ connection_properties = {
 }
 
 def write_to_gold_table(df, table_name):
-    df.write \
-        .format("postgresql") \
-        .option("host", db_host) \
-        .option("port", db_port) \
-        .option("database", gold_db) \
-        .option("dbtable", table_name) \
-        .option("user", db_user) \
-        .option("password", db_password) \
-        .mode("overwrite") \
-        .save()
+    try:
+        df.write \
+            .format("postgresql") \
+            .option("host", db_host) \
+            .option("port", db_port) \
+            .option("database", gold_db) \
+            .option("dbtable", table_name) \
+            .option("user", db_user) \
+            .option("password", db_password) \
+            .mode("overwrite") \
+            .save()
+    except Exception as e:
+        print(f"Error writing to supabase table {table_name}: {e}")
 
 # Minimum Wage tables
 gold_minimum_wage = (

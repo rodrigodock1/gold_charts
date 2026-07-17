@@ -1,6 +1,6 @@
 from pyspark import pipelines as dp
 from datetime import datetime
-from api_interface.api_connections import world_bank_metrics, oecd_metrics, iso3_to_country_name, joined_economic_data, oecd_codes, world_bank_codes
+from api_interface.api_connections import world_bank_metrics, oecd_metrics, iso3_to_country_name, joined_economic_data, oecd_codes, world_bank_codes, latest_gold_price
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, lit
 
