@@ -6,6 +6,7 @@ from pyspark.sql.functions import col, lit
 
 # Latest data provided by the World Bank
 latest_year = datetime.now().year - 2 
+latest_gold_price(datetime.now().year)
 
 # world_bank_metrics
 for world_bank_metric, world_bank_code in world_bank_codes.items():

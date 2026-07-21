@@ -110,9 +110,11 @@ gold_minimum_wage = (
         "country/region",
         country_map[split(col("REF_AREA"), "_").getItem(0)]
     )
-    .withColumn("minimum_wage_gold", col("OBS_VALUE")/recent_gold_price[0]["Price (USD per kg)"])
+    .withColumn("minimum_wage_gold", (col("OBS_VALUE")/col("EXCHANGE_RATE"))/recent_gold_price[0]["Price (USD per kg)"])
+    .withColumn("previous_year_wage_gold", (col("PREVIOUS_YEAR_OBS_VALUE")/col("PREVIOUS_YEAR_EXCHANGE_RATE"))/previous_gold_price[0]["Price (USD per kg)"])
+    .withColumn("percentage_change_from_past_year", (col("minimum_wage_gold")/col("previous_year_wage_gold")-1)*100)
     .withColumnsRenamed({"OBS_VALUE": "minimum_wage_dollars", "REF_AREA": "country_iso3_code"})
-    .drop("OBS_VALUE", "EXCHANGE_RATE", "SEX", "UNIT_MEASURE", "OBS_STATUS")
+    .drop("OBS_VALUE", "EXCHANGE_RATE", "SEX", "UNIT_MEASURE", "OBS_STATUS", "PREVIOUS_YEAR_OBS_VALUE", "PREVIOUS_YEAR_EXCHANGE_RATE", "previous_year_wage_gold")
 )
 write_to_gold_table(gold_minimum_wage, "minimum_wage")
 
@@ -124,16 +126,17 @@ gold_average_wage = (
         "country/region",
         country_map[split(col("REF_AREA"), "_").getItem(0)]
     )
-    .withColumn("average_wage_gold", col("OBS_VALUE")/recent_gold_price[0]["Price (USD per kg)"])
+    .withColumn("average_wage_gold", (col("OBS_VALUE")/col("EXCHANGE_RATE"))/recent_gold_price[0]["Price (USD per kg)"])
+    .withColumn("previous_year_wage_gold", (col("PREVIOUS_YEAR_OBS_VALUE")/col("PREVIOUS_YEAR_EXCHANGE_RATE"))/previous_gold_price[0]["Price (USD per kg)"])
+    .withColumn("percentage_change_from_past_year", (col("average_wage_gold")/col("previous_year_wage_gold")-1)*100)
     .withColumnsRenamed({"OBS_VALUE": "average_wage_dollars", "REF_AREA": "country_iso3_code"})
-    .drop("OBS_VALUE", "EXCHANGE_RATE", "SEX", "UNIT_MEASURE", "OBS_STATUS")
+    .drop("OBS_VALUE", "EXCHANGE_RATE", "SEX", "UNIT_MEASURE", "OBS_STATUS", "PREVIOUS_YEAR_OBS_VALUE", "PREVIOUS_YEAR_EXCHANGE_RATE", "previous_year_wage_gold")
 )
 write_to_gold_table(gold_average_wage, "average_wage")
 
 # GDP table
 gold_gdp_ppp = (
     gdp_ppp
-    .filter(col("country_iso3_code").isin(list(iso3_to_country_full.keys())))
     .withColumn("gdp_ppp_gold", col("latest_gdp_ppp")/recent_gold_price[0]["Price (USD per kg)"])
     .withColumn("gdp_ppp_gold_t_oz", col("latest_gdp_ppp")/recent_gold_price[0]["Price (USD per troy ounce)"])
     .withColumn("previous_gdp_ppp_gold", col("previous_gdp_ppp")/previous_gold_price[0]["Price (USD per kg)"])
@@ -152,7 +155,6 @@ write_to_gold_table(gold_gdp_ppp, "gdp_ppp")
 # GDP per Capita table
 gold_gdp_ppp_per_capita = (
     gdp_ppp_per_capita
-    .filter(col("country_iso3_code").isin(list(iso3_to_country_full.keys())))
     .withColumn("gdp_ppp_per_capita_gold", col("latest_gdp_ppp_per_capita")/recent_gold_price[0]["Price (USD per kg)"])
     .withColumn("gdp_ppp_capita_gold_t_oz", col("latest_gdp_ppp_per_capita")/recent_gold_price[0]["Price (USD per troy ounce)"])
     .withColumn("previous_gdp_ppp_per_capita_gold", col("previous_gdp_ppp_per_capita")/previous_gold_price[0]["Price (USD per kg)"])
@@ -170,7 +172,6 @@ write_to_gold_table(gold_gdp_ppp_per_capita, "gdp_ppp_per_capita")
 
 gold_current_account_balance = (
     current_account_balance
-    .filter(col("country_iso3_code").isin(list(iso3_to_country_full.keys())))
     .withColumn("current_account_balance_gold", col("latest_current_account_balance")/recent_gold_price[0]["Price (USD per kg)"])
     .withColumn("current_account_balance_gold_t_oz", col("latest_current_account_balance")/recent_gold_price[0]["Price (USD per troy ounce)"])
     .withColumn("previous_current_account_balance_gold", col("previous_current_account_balance")/previous_gold_price[0]["Price (USD per kg)"])

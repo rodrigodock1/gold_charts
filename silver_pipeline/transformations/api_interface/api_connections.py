@@ -242,6 +242,14 @@ def oecd_metrics(oecd_code, latest_year, oecd_api_url=None, world_bank_url=None)
         f"&endPeriod={latest_year}"
         "&format=csvfile"
     )
+
+    previous_year_url = (
+        f"{oecd_api_url}"
+        f"OECD.ELS.SAE,DSD_EARNINGS@{oecd_code},1.0/all"
+        f"?startPeriod={latest_year - 1}"
+        f"&endPeriod={latest_year - 1}"
+        "&format=csvfile"
+    )
     df = None
     try:
         response = requests.get(
@@ -252,15 +260,38 @@ def oecd_metrics(oecd_code, latest_year, oecd_api_url=None, world_bank_url=None)
         wage_data = spark.createDataFrame(oecd_data)
         # Call currencies conversion
         exchange_map = build_exchange_map(latest_year, world_bank_url)
+        # Previous year
+        previous_year_response = requests.get(
+            previous_year_url,
+            headers={"User-Agent": "Mozilla/5.0"}
+        )
+        previous_year_oecd_data = pd.read_csv(StringIO(previous_year_response.text))
+        previous_year_wage_data = spark.createDataFrame(previous_year_oecd_data)
+        # Call currencies conversion
+        previous_year_exchange_map = build_exchange_map(latest_year - 1, world_bank_url)
+
+        previous_year_df = (
+            previous_year_wage_data
+            .where((col("PAY_PERIOD") == "A") & (col("PRICE_BASE") == "V"))
+            .select(["REF_AREA", "OBS_VALUE", "UNIT_MEASURE"])
+            .withColumn(
+                "PREVIOUS_YEAR_EXCHANGE_RATE",
+                previous_year_exchange_map[split(col("UNIT_MEASURE"), "_").getItem(0)]
+            )
+            .withColumnRenamed("OBS_VALUE", "PREVIOUS_YEAR_OBS_VALUE")
+            .drop("UNIT_MEASURE")
+        )
+
         df = (
             wage_data
+            .join(previous_year_df, on="REF_AREA", how="left")
             .where((col("PAY_PERIOD") == "A") & (col("PRICE_BASE") == "V"))
-            .select(["REF_AREA", "UNIT_MEASURE", "SEX", "OBS_VALUE", "OBS_STATUS"])
+            .select(["REF_AREA", "UNIT_MEASURE", "SEX", "OBS_VALUE", "OBS_STATUS", "PREVIOUS_YEAR_OBS_VALUE", "PREVIOUS_YEAR_EXCHANGE_RATE"])
             .withColumn(
                 "EXCHANGE_RATE",
                 exchange_map[split(col("UNIT_MEASURE"), "_").getItem(0)]
+            )
         )
-    )
     except Exception as e:
         print(f"Error: {e}")
         schema = StructType([
